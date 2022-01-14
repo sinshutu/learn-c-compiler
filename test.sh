@@ -17,8 +17,8 @@ assert() {
     fi
 }
 
-assert 3 '1+2'
-assert 1 '3-2'
-assert 21 '5+20-4'
+assert 3 ' 1 + 2 '
+assert 1 ' 3 - 2 '
+assert 21 ' 5 +20 -4'
 
 echo ok
