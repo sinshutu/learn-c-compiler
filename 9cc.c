@@ -29,17 +29,21 @@ typedef enum {
   TK_EOF, // 終端子
 } TokenKind;
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+Node *new_node(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
+  return node;
+}
+
+Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+  Node *node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
 Node *new_node_num(int val) {
-  Node *node = calloc(1, sizeof(Node));
-  node->kind = ND_NUM;
+  Node *node = new_node(ND_NUM);
   node->val = val;
   return node;
 }
@@ -152,6 +156,7 @@ Token *tokenize(char *p) {
   return head.next;
 }
 
+Node *expr();
 Node *mul();
 Node *unary();
 Node *primary();
@@ -166,9 +171,9 @@ Node *expr() {
 
   for(;;) {
     if (consume('+'))
-      node = new_node(ND_ADD, node, mul());
+      node = new_binary(ND_ADD, node, mul());
     else if (consume('-'))
-      node = new_node(ND_SUB, node, mul());
+      node = new_binary(ND_SUB, node, mul());
     else
       return node;
   }
@@ -179,9 +184,9 @@ Node *mul() {
 
   for(;;) {
     if (consume('*'))
-      node = new_node(ND_MUL, node, unary());
+      node = new_binary(ND_MUL, node, unary());
     else if (consume('/'))
-      node = new_node(ND_DIV, node, unary());
+      node = new_binary(ND_DIV, node, unary());
     else
       return node;
   }
@@ -191,7 +196,7 @@ Node *unary() {
   if (consume('+'))
     return primary();
   if (consume('-'))
-    return new_node(ND_SUB, new_node_num(0), primary());
+    return new_binary(ND_SUB, new_node_num(0), primary());
   return primary();
 }
 
