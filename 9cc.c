@@ -134,6 +134,10 @@ Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
   return tok;
 }
 
+bool startswith(char *p, char *q) {
+  return memcmp(p, q, strlen(q)) == 0;
+}
+
 // 入力文字列pをトークナイズしてそれを返す
 Token *tokenize(char *p) {
   Token head;
@@ -141,10 +145,16 @@ Token *tokenize(char *p) {
   Token *cur = &head;
 
   while(*p) {
-    printf("// str %s\n", cur->str);
     printf("// kind %d, val %d, len %d\n", cur->kind, cur->val, cur->len);
     if (isspace(*p)) {
       p++;
+      continue;
+    }
+
+    if (startswith(p, "==") || startswith(p, "!=") ||
+        startswith(p, "<=") || startswith(p, ">=")) {
+      cur = new_token(TK_RESERVED, cur, p, 2);
+      p += 2;
       continue;
     }
 
@@ -211,7 +221,7 @@ Node *relationnal() {
     else if (consume("<="))
       node = new_binary(ND_LE, node, add());
     else if (consume(">"))
-      node = new_binary(ND_LE, add(), node);
+      node = new_binary(ND_LT, add(), node);
     else if (consume(">="))
       node = new_binary(ND_LE, add(), node);
     else
@@ -288,6 +298,26 @@ void gen(Node *node) {
     case ND_DIV:
       printf("  cqo\n");
       printf("  idiv rdi\n");
+      break;
+    case ND_EQ:
+      printf("  cmp rax, rdi\n");
+      printf("  sete al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case ND_NE:
+      printf("  cmp rax, rdi\n");
+      printf("  setne al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case ND_LT:
+      printf("  cmp rax, rdi\n");
+      printf("  setl al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case ND_LE:
+      printf("  cmp rax, rdi\n");
+      printf("  setle al\n");
+      printf("  movzb rax, al\n");
       break;
   }
 
