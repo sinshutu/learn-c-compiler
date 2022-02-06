@@ -11,6 +11,10 @@ typedef enum {
   ND_SUB, // -
   ND_MUL, // *
   ND_DIV, // /
+  ND_EQ,  // ==
+  ND_NE,  // !=
+  ND_LT,  // <
+  ND_LE,  // <=
   ND_NUM, // 整数
 } NodeKind;
 
@@ -54,6 +58,7 @@ struct Token {
   Token *next;
   int val;
   char *str;
+  int len;
 };
 
 // 現在着目しているトークン
@@ -88,8 +93,10 @@ void error_at(char *loc, char *fmt, ...) {
 
 // 次のトークンが期待している記号のときには、トークンを1つ読み進めて
 // 真を返す。それ以外の場合には偽を返す。
-bool consume(char op) {
-  if (token->kind != TK_RESERVED || token->str[0] != op)
+bool consume(char *op) {
+  if (token->kind != TK_RESERVED ||
+      strlen(op) != token->len ||
+      memcmp(token->str, op, token->len))
     return false;
   token = token->next;
   return true;
@@ -118,10 +125,11 @@ bool at_eof() {
 }
 
 // 新しいトークンを作成してcurに繋げる
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
   Token *tok = calloc(1, sizeof(Token));
   tok->kind = kind;
   tok->str = str;
+  tok->len = len;
   cur->next = tok;
   return tok;
 }
@@ -133,46 +141,91 @@ Token *tokenize(char *p) {
   Token *cur = &head;
 
   while(*p) {
+    printf("// str %s\n", cur->str);
+    printf("// kind %d, val %d, len %d\n", cur->kind, cur->val, cur->len);
     if (isspace(*p)) {
       p++;
       continue;
     }
 
-    if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
-      cur = new_token(TK_RESERVED, cur, p++);
+    if (strchr("+-*/()<>", *p)) {
+      cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;
     }
 
     if (isdigit(*p)) {
-      cur = new_token(TK_NUM, cur, p);
+      cur = new_token(TK_NUM, cur, p, 0);
+      char *q = p;
       cur->val = strtol(p, &p, 10);
+      cur->len = p - q;
       continue;
     }
 
     error_at(p, "トークナイズできません");
   }
 
-  new_token(TK_EOF, cur, p);
+  new_token(TK_EOF, cur, p, 0);
   return head.next;
 }
 
 Node *expr();
+Node *equality();
+Node *relationnal();
+Node *add();
 Node *mul();
 Node *unary();
 Node *primary();
 
 // BNF
-// expr    = mul ("+" mul | "-" mul)*
-// mul     = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-")? primary
-// primary = num | "(" expr ")"
+// expr         = equality
+// equality     = relationnal ("==" relationnal | "!=" relationnal)*
+// relationnal  = add ("<" add | "<=" add | ">" add | ">=" add)*
+// add          = mul ("+" mul | "-" mul)*
+// mul          = unary ("*" unary | "/" unary)*
+// unary        = ("+" | "-")? primary
+// primary      = num | "(" expr ")"
+
 Node *expr() {
+  return equality();
+}
+
+Node *equality() {
+  Node *node = relationnal();
+
+  for(;;) {
+    if (consume("=="))
+      node = new_binary(ND_EQ, node, relationnal());
+    else if (consume("!="))
+      node = new_binary(ND_NE, node, relationnal());
+    else
+      return node;
+  }
+}
+
+Node *relationnal() {
+  Node *node = add();
+
+  for(;;) {
+    if (consume("<"))
+      node = new_binary(ND_LT, node, add());
+    else if (consume("<="))
+      node = new_binary(ND_LE, node, add());
+    else if (consume(">"))
+      node = new_binary(ND_LE, add(), node);
+    else if (consume(">="))
+      node = new_binary(ND_LE, add(), node);
+    else
+      return node;
+  }
+}
+
+Node *add() {
   Node *node = mul();
 
   for(;;) {
-    if (consume('+'))
+    if (consume("+"))
       node = new_binary(ND_ADD, node, mul());
-    else if (consume('-'))
+    else if (consume("-"))
       node = new_binary(ND_SUB, node, mul());
     else
       return node;
@@ -183,9 +236,9 @@ Node *mul() {
   Node *node = unary();
 
   for(;;) {
-    if (consume('*'))
+    if (consume("*"))
       node = new_binary(ND_MUL, node, unary());
-    else if (consume('/'))
+    else if (consume("/"))
       node = new_binary(ND_DIV, node, unary());
     else
       return node;
@@ -193,15 +246,15 @@ Node *mul() {
 }
 
 Node *unary() {
-  if (consume('+'))
+  if (consume("+"))
     return primary();
-  if (consume('-'))
+  if (consume("-"))
     return new_binary(ND_SUB, new_node_num(0), primary());
   return primary();
 }
 
 Node *primary() {
-  if (consume('(')) {
+  if (consume("(")) {
     Node *node = expr();
     expect(')');
     return node;
