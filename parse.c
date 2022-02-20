@@ -109,7 +109,6 @@ Token *tokenize(char *p) {
   Token *cur = &head;
 
   while(*p) {
-    printf("// kind %d, val %d, len %d\n", cur->kind, cur->val, cur->len);
     if (isspace(*p)) {
       p++;
       continue;
@@ -122,8 +121,13 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    if (strchr("+-*/()<>", *p)) {
+    if (strchr("+-*/()<>;", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
+      continue;
+    }
+
+    if ('a' <= *p && *p <= 'z') {
+      cur = new_token(TK_IDENT, cur, p++, 1);
       continue;
     }
 
@@ -134,6 +138,7 @@ Token *tokenize(char *p) {
       cur->len = p - q;
       continue;
     }
+    printf("// kind %d, val %d, len %d\n", cur->kind, cur->val, cur->len);
 
     error_at(p, "トークナイズできません");
   }
@@ -142,17 +147,55 @@ Token *tokenize(char *p) {
   return head.next;
 }
 
+Node **program();
+Node *stmt();
+Node *assign();
+Node *expr();
+Node *equality();
+Node *relationnal();
+Node *add();
+Node *mul();
+Node *unary();
+Node *primary();
+
 // BNF
-// expr         = equality
+// program      = stmt*
+// stmt         = expr ";"
+// expr         = assign
+// assign       = equality ("=" assign)?
 // equality     = relationnal ("==" relationnal | "!=" relationnal)*
 // relationnal  = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add          = mul ("+" mul | "-" mul)*
 // mul          = unary ("*" unary | "/" unary)*
 // unary        = ("+" | "-")? primary
-// primary      = num | "(" expr ")"
+// primary      = num | ident | "(" expr ")"
+
+Node *codes[100];
+
+Node **program() {
+  int i = 0;
+  while(!at_eof())
+    codes[i++] = stmt();
+  codes[i] = NULL;
+
+  return codes;
+}
+
+Node *stmt() {
+  Node *node = expr();
+  expect(';');
+  return node;
+}
 
 Node *expr() {
-  return equality();
+  return assign();
+}
+
+Node *assign() {
+  Node *node = equality();
+  if(consume("="))
+    return new_binary(ND_ASSIGN, node, assign());
+  return node;
 }
 
 Node *equality() {

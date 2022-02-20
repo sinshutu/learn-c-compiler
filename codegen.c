@@ -2,6 +2,7 @@
 #include "./9cc.h"
 
 void gen(Node *node) {
+  printf("// gen, n_kind %d\n", node->kind);
   if (node->kind == ND_NUM) {
     printf("  push %d\n", node->val);
     return;

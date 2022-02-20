@@ -9,13 +9,19 @@ int main(int argc, char **argv){
 
   user_input = argv[1];
   token = tokenize(argv[1]);
-  Node *node = expr();
+
+  Token *token_tmp = token;
+  while(token_tmp->kind != TK_EOF) {
+      printf("// t_kind %d, val %d, len %d\n", token_tmp->kind, token_tmp->val, token_tmp->len);
+      token_tmp = token_tmp->next;
+  }
+  Node **node = program();
 
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
   printf("main:\n");
 
-  gen(node);
+  gen(node[0]);
 
   printf("  pop rax\n");
   printf("  ret\n");
