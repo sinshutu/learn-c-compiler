@@ -66,6 +66,14 @@ bool consume(char *op) {
   return true;
 }
 
+Token *consume_ident() {
+  if (token->kind != TK_IDENT)
+      return NULL;
+  Token *tmp = token;
+  token = token->next;
+  return tmp;
+}
+
 // 次のトークンが期待している記号のときには、トークンを1つ読み進める。
 // それ以外の場合にはエラーを報告する。
 void expect(char op) {
@@ -121,7 +129,7 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    if (strchr("+-*/()<>;", *p)) {
+    if (strchr("+-*/()<>;=", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;
     }
@@ -138,7 +146,6 @@ Token *tokenize(char *p) {
       cur->len = p - q;
       continue;
     }
-    printf("// kind %d, val %d, len %d\n", cur->kind, cur->val, cur->len);
 
     error_at(p, "トークナイズできません");
   }
@@ -266,6 +273,14 @@ Node *primary() {
   if (consume("(")) {
     Node *node = expr();
     expect(')');
+    return node;
+  }
+
+  Token *tok = consume_ident();
+  if (tok) {
+    Node *node = calloc(1, sizeof(Node));
+    node->kind = ND_LVAR;
+    node->offset = (tok->str[0] - 'a' + 1) * 8;
     return node;
   }
 
